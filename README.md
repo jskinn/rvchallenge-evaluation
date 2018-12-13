@@ -48,6 +48,6 @@ The key metric used for this challenge is the probability-based detection qualit
 described in this paper: http://arxiv.org/abs/1811.10800, and explained in more detail on the competition page,
 here:
 
-https://competitions.codalab.org/competitions/19742#learn_the_details-evaluation-measure-and-process
+https://competitions.codalab.org/competitions/20940#learn_the_details-evaluation
 
 This metric is implemented in `pdq.py`
