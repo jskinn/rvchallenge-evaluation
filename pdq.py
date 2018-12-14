@@ -88,30 +88,36 @@ class PDQ(object):
     def get_avg_spatial_score(self):
         """
         Get the average spatial quality score for all assigned detections in all frames analysed at the current time.
-        Note that this is averaged over the number of TPs and not the full set of TPs, FPs, and FNs like the
-        final PDQ score.
-        :return: average spatial quality of every  assigned detection
+        Note that this is averaged over the number of assigned detections (TPs) and not the full set of TPs, FPs,
+        and FNs like the final PDQ score.
+        :return: average spatial quality of every detection
         """
-        return self._tot_spatial_quality / float(self._tot_TP)
+        if self._tot_TP > 0.0:
+            return self._tot_spatial_quality / float(self._tot_TP)
+        return 0.0
 
     def get_avg_label_score(self):
         """
         Get the average label quality score for all assigned detections in all frames analysed at the current time.
-        Note that this is averaged over the number of TPs and not the full set of TPs, FPs, and FNs like the
-        final PDQ score.
-        :return: average label quality of every  assigned detection
+        Note that this is averaged over the number of assigned detections (TPs) and not the full set of TPs, FPs,
+        and FNs like the final PDQ score.
+        :return: average label quality of every detection
         """
-        return self._tot_label_quality / float(self._tot_TP)
+        if self._tot_TP > 0.0:
+            return self._tot_label_quality / float(self._tot_TP)
+        return 0.0
 
     def get_avg_overall_quality_score(self):
         """
         Get the average overall pairwise quality score for all assigned detections
         in all frames analysed at the current time.
-        Note that this is averaged over the number of TPs and not the full set of TPs, FPs, and FNs like the
-        final PDQ score.
-        :return: average overall pairwise quality of every  assigned detection
+        Note that this is averaged over the number of assigned detections (TPs) and not the full set of TPs, FPs,
+        and FNs like the final PDQ score.
+        :return: average overall pairwise quality of every  detection
         """
-        return self._tot_overall_quality / float(self._tot_TP)
+        if self._tot_TP > 0.0:
+            return self._tot_overall_quality / float(self._tot_TP)
+        return 0.0
 
     def get_assignment_counts(self):
         """
@@ -125,9 +131,10 @@ def _get_image_evals(pair):
     """
     Evaluate the results for a given image
     :param pair: tuple containing list of GroundTruthInstances and DetectionInstances for the given image respectively
-    :return: results dictionary containing total overall spatial quality, total spatial quality, total label quality,
-    number of true positives, number of false positives, and number false negatives for the given image.
-    Format {'overall':<tot_overall_quality>, 'spatial': <tot_spatial_quality>, 'label': <tot_label_quality>,
+    :return: results dictionary containing total overall spatial quality, total spatial quality on positively assigned
+    detections, total label quality on positively assigned detections, number of true positives,
+    number of false positives, and number false negatives for the given image.
+    Format {'overall':<tot_overall_quality>, 'spatial': <tot_tp_spatial_quality>, 'label': <tot_tp_label_quality>,
     'TP': <num_true_positives>, 'FP': <num_false_positives>, 'FN': <num_false_positives>}
     """
     gt_instances, det_instances = pair
@@ -315,9 +322,10 @@ def _calc_qual_img(gt_instances, det_instances):
     will not contribute to average_PDQ.
     :param gt_instances: list of GroundTruthInstance objects describing the ground truth objects in the current image.
     :param det_instances: list of DetectionInstance objects describing the detections for the current image.
-    :return: results dictionary containing total overall spatial quality, total spatial quality, total label quality,
-    number of true positives, number of false positives, and number false negatives for the given image.
-    Format {'overall':<tot_overall_quality>, 'spatial': <tot_spatial_quality>, 'label': <tot_label_quality>,
+    :return: results dictionary containing total overall spatial quality, total spatial quality on positively assigned
+    detections, total label quality on positively assigned detections, number of true positives,
+    number of false positives, and number false negatives for the given image.
+    Format {'overall':<tot_overall_quality>, 'spatial': <tot_tp_spatial_quality>, 'label': <tot_tp_label_quality>,
     'TP': <num_true_positives>, 'FP': <num_false_positives>, 'FN': <num_false_positives>}
     """
     # if there are no detections or gt instances respectively the quality is zero
@@ -340,8 +348,12 @@ def _calc_qual_img(gt_instances, det_instances):
 
     # Calculate the sum of quality at the best matching pairs to calculate total qualities for the image
     tot_overall_img_quality = np.sum(overall_quality_table[row_idxs, col_idxs])
-    tot_spatial_img_quality = np.sum(spatial_quality_table[row_idxs, col_idxs])
-    tot_label_img_quality = np.sum(label_quality_table[row_idxs, col_idxs])
+
+    # Calculate the sum of spatial and label qualities only for TP samples
+    spatial_quality_table[overall_quality_table == 0] = 0
+    label_quality_table[overall_quality_table == 0] = 0
+    tot_tp_spatial_quality = np.sum(spatial_quality_table[row_idxs, col_idxs])
+    tot_tp_label_quality = np.sum(label_quality_table[row_idxs, col_idxs])
 
     # Calculate the number of TPs, FPs, and FNs for the image.
     true_positives = 0
@@ -357,5 +369,5 @@ def _calc_qual_img(gt_instances, det_instances):
             if col_id < len(det_instances):
                 false_positives += 1
 
-    return {'overall': tot_overall_img_quality, 'spatial': tot_spatial_img_quality, 'label': tot_label_img_quality,
+    return {'overall': tot_overall_img_quality, 'spatial': tot_tp_spatial_quality, 'label': tot_tp_label_quality,
             'TP': true_positives, 'FP': false_positives, 'FN': false_negatives}
