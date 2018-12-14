@@ -139,6 +139,20 @@ class TestPDQ(unittest.TestCase):
 
         gts = [val for val in self.square_gt]
         for i in range(9):
+            # Create small 11x11 boxes which are missed around an edge of the image (buffer of 2 pixels)
+            new_gt_mask = np.zeros(gts[0].segmentation_mask.shape, gts[0].segmentation_mask.dtype)
+            new_gt_mask[2:14, 2 + i * 14:14 + i * 14] = np.amax(gts[0].segmentation_mask)
+            gts.append(GroundTruthInstance(new_gt_mask, 0, 0, i+1))
+        detections = [BBoxDetInst(self.default_label_list, self.gt_box)]
+        evaluator = PDQ()
+        score = evaluator.score([(gts, detections)])
+
+        self.assertAlmostEqual(score, 0.1)
+
+    def test_multiple_missed_gts_too_small(self):
+
+        gts = [val for val in self.square_gt]
+        for i in range(9):
             # Create small 2x2 boxes which are missed around an edge of the image (buffer of 2 pixels)
             new_gt_mask = np.zeros(gts[0].segmentation_mask.shape, gts[0].segmentation_mask.dtype)
             new_gt_mask[2:4, 2 + i * 4:4 + i * 4] = np.amax(gts[0].segmentation_mask)
@@ -147,14 +161,14 @@ class TestPDQ(unittest.TestCase):
         evaluator = PDQ()
         score = evaluator.score([(gts, detections)])
 
-        self.assertAlmostEqual(score, 0.1)
+        self.assertAlmostEqual(score, 1.0)
 
     def test_missed_gts_and_unmatched_detections(self):
         gts = [val for val in self.square_gt]
         for i in range(10):
-            # Create small 2x2 boxes which are missed around an edge of the image (buffer of 2 pixels)
+            # Create small 11x11 boxes which are missed around an edge of the image (buffer of 2 pixels)
             new_gt_mask = np.zeros(gts[0].segmentation_mask.shape, gts[0].segmentation_mask.dtype)
-            new_gt_mask[2:4, 2 + i * 4:4 + i * 4] = np.amax(gts[0].segmentation_mask)
+            new_gt_mask[2:14, 2 + i * 14:14 + i * 14] = np.amax(gts[0].segmentation_mask)
             gts.append(GroundTruthInstance(new_gt_mask, 0, 0, i+1))
 
         detections = [BBoxDetInst(self.default_label_list, self.gt_box) for _ in range(10)]

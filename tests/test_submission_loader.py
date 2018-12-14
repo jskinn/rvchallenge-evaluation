@@ -36,7 +36,7 @@ class TestSubmissionLoaderGenImgPBoxes(th.ExtendedTestCase):
         self.assertEqual(len(img_dets), len(dets))
         for idx in range(len(img_dets)):
             self.assertIsInstance(dets[idx], data_holders.DetectionInstance)
-            expected_list = np.zeros(len(class_list.CLASSES))
+            expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
             expected_list[0:5] = img_dets[idx]['label_probs']
             self.assertNPEqual(expected_list, dets[idx].class_list)
 
@@ -46,7 +46,7 @@ class TestSubmissionLoaderGenImgPBoxes(th.ExtendedTestCase):
             'bbox': [12, 14, 55, 46],
             'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
         }], [[2, 1, 3], [0, 2, 3]], num_classes=4))
-        expected_list = np.zeros(len(class_list.CLASSES))
+        expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
         expected_list[2] = 0.1
         expected_list[1] = 0.3
         expected_list[3] = 0.4
@@ -58,7 +58,7 @@ class TestSubmissionLoaderGenImgPBoxes(th.ExtendedTestCase):
             'bbox': [12, 14, 55, 46],
             'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
         }], [list(range(5)), list(range(5))], num_classes=5))
-        expected_list = np.zeros(len(class_list.CLASSES))
+        expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
         expected_list[0:5] = [0.1, 0.2, 0.3, 0.4, 0.5]
         expected_list /= np.sum(expected_list)
         self.assertNPEqual(expected_list, det.class_list)
@@ -69,7 +69,7 @@ class TestSubmissionLoaderGenImgPBoxes(th.ExtendedTestCase):
             'bbox': [12, 14, 55, 46],
             'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
         }], [list(range(5)), list(range(5))], num_classes=5))
-        expected_list = np.zeros(len(class_list.CLASSES))
+        expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
         expected_list[0:5] = [0.1, 0.1, 0.1, 0.1, 0.2]
         self.assertNPEqual(expected_list, det.class_list)
 
@@ -258,7 +258,7 @@ class TestSubmissionLoaderReadSequence(th.ExtendedTestCase):
             for det_idx in range(len(img_dets)):
                 self.assertIsInstance(img_dets[det_idx], data_holders.DetectionInstance)
                 expected_probs = detections[img_idx][det_idx]['label_probs']
-                expected_list = np.zeros(len(class_list.CLASSES))
+                expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
                 expected_list[0:len(expected_probs)] = expected_probs
                 self.assertNPEqual(expected_list, img_dets[det_idx].class_list)
 
@@ -424,7 +424,7 @@ class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
                 for det_idx in range(len(img_dets)):
                     self.assertIsInstance(img_dets[det_idx], data_holders.DetectionInstance)
                     expected_probs = detections[img_idx][det_idx]['label_probs']
-                    expected_list = np.zeros(len(class_list.CLASSES))
+                    expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
                     expected_list[0:len(expected_probs)] = expected_probs
                     self.assertNPEqual(expected_list, img_dets[det_idx].class_list)
 
