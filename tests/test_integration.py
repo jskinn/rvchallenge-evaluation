@@ -57,7 +57,6 @@ class TestIntegration(unittest.TestCase):
         self.assertGreaterEqual(scores_data['TPs'], 0)
         self.assertEqual(scores_data['TPs'], int(scores_data['TPs']))
 
-
     def test_profile(self):
         base_folder = os.path.dirname(__file__)
         input_dir = os.path.join(base_folder, 'integration_dir')

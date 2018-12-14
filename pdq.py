@@ -346,15 +346,6 @@ def _calc_qual_img(gt_instances, det_instances):
     spatial_quality_table = 1 - cost_tables['spatial']
     label_quality_table = 1 - cost_tables['label']
 
-    # Calculate the sum of quality at the best matching pairs to calculate total qualities for the image
-    tot_overall_img_quality = np.sum(overall_quality_table[row_idxs, col_idxs])
-
-    # Calculate the sum of spatial and label qualities only for TP samples
-    spatial_quality_table[overall_quality_table == 0] = 0
-    label_quality_table[overall_quality_table == 0] = 0
-    tot_tp_spatial_quality = np.sum(spatial_quality_table[row_idxs, col_idxs])
-    tot_tp_label_quality = np.sum(label_quality_table[row_idxs, col_idxs])
-
     # Calculate the number of TPs, FPs, and FNs for the image.
     true_positives = 0
     false_positives = 0
@@ -362,12 +353,36 @@ def _calc_qual_img(gt_instances, det_instances):
     for match_idx, match in enumerate(zip(row_idxs, col_idxs)):
         row_id, col_id = match
         if overall_quality_table[row_id, col_id] > 0:
-            true_positives += 1
+            if row_id < len(gt_instances) and _is_gt_included(gt_instances[row_id]):
+                true_positives += 1
+            else:
+                # ignore detections on samples which are too small to be considered a valid object
+                overall_quality_table[row_id, col_id] = 0.0
         else:
-            if row_id < len(gt_instances):
+            if row_id < len(gt_instances) and _is_gt_included(gt_instances[row_id]):
                 false_negatives += 1
             if col_id < len(det_instances):
                 false_positives += 1
 
+    # Calculate the sum of quality at the best matching pairs to calculate total qualities for the image
+    tot_overall_img_quality = np.sum(overall_quality_table[row_idxs, col_idxs])
+
+    # Calculate the sum of spatial and label qualities only for TP samples
+    spatial_quality_table[overall_quality_table == 0] = 0.0
+    label_quality_table[overall_quality_table == 0] = 0.0
+    tot_tp_spatial_quality = np.sum(spatial_quality_table[row_idxs, col_idxs])
+    tot_tp_label_quality = np.sum(label_quality_table[row_idxs, col_idxs])
+
     return {'overall': tot_overall_img_quality, 'spatial': tot_tp_spatial_quality, 'label': tot_tp_label_quality,
             'TP': true_positives, 'FP': false_positives, 'FN': false_negatives}
+
+
+def _is_gt_included(gt_instance):
+    """
+    Determines if a ground-truth instance is large enough to be considered valid for detection
+    :param gt_instance: GroundTruthInstance object being evaluated
+    :return: Boolean describing if the object is valid for detection
+    """
+    return (gt_instance.bounding_box[2] - gt_instance.bounding_box[0] > 10) and \
+           (gt_instance.bounding_box[3] - gt_instance.bounding_box[1] > 10) and \
+           np.count_nonzero(gt_instance.segmentation_mask) > 100
