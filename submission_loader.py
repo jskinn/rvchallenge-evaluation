@@ -7,7 +7,7 @@ import data_holders
 import class_list
 
 
-def read_submission(directory):
+def read_submission(directory, expected_sequence_names):
     """
     Read all the submissions for all the sequences outlined in the given folder.
     Each sequence's detections are provided in a file ending with 'detections.json'.
@@ -25,14 +25,26 @@ def read_submission(directory):
     If an image does not have any detections, entry should be an empty list.
 
     :param directory: location of each sequence's submission json file.
+    :param expected_sequence_names: The list of sequence names we're looking for submissions for.
     :return: generator of generator of DetectionInstances for each image
     """
     sequences = {}
-    for sequence_json in os.listdir(directory):
-        if sequence_json.endswith('.json'):
-            sequence_path = os.path.join(directory, sequence_json)
-            sequences[os.path.splitext(sequence_json.lower())[0]] = read_sequence(sequence_path)
-    return sequences
+    for root, _, files in os.walk(directory):
+        for sequence_name in expected_sequence_names:
+            json_file = sequence_name + '.json'
+            if json_file in files:
+                if sequence_name in sequences:
+                    raise ValueError("{0} : more than one json file found for sequence, {1} and {2}".format(
+                        sequence_name,
+                        os.path.relpath(sequences[sequence_name], directory),
+                        os.path.relpath(os.path.join(root, json_file), directory)
+                    ))
+                else:
+                    sequences[sequence_name] = os.path.join(root, json_file)
+    return {
+        sequence_name: read_sequence(sequence_path)
+        for sequence_name, sequence_path in sequences.items()
+    }
 
 
 def read_sequence(sequence_json):
@@ -118,7 +130,6 @@ def gen_img_pboxes(img_dets, class_mapping, num_classes=len(class_list.CLASSES),
         if det['bbox'][3] < det['bbox'][1]:
             raise ValueError(make_error_msg("The y1 coordinate must be less than the y2 coordinate",
                                             sequence_name, img_idx, det_idx))
-
 
         # Use numpy list indexing to move specific indexes from the submission
         label_probs = np.zeros(len(class_list.CLASSES), dtype=np.float32)

@@ -354,10 +354,13 @@ class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
         if os.path.isdir(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    def make_submission(self, detections_map):
-        os.makedirs(self.temp_dir, exist_ok=True)
+    def make_submission(self, detections_map, subfolder=None):
+        root = self.temp_dir
+        if subfolder is not None:
+            root = os.path.join(self.temp_dir, subfolder)
+        os.makedirs(root, exist_ok=True)
         for sequence_name, detections in detections_map.items():
-            json_file = os.path.join(self.temp_dir, '{0}.json'.format(sequence_name))
+            json_file = os.path.join(root, '{0}.json'.format(sequence_name))
             patch_classes(detections)
             with open(json_file, 'w') as fp:
                 json.dump({
@@ -367,11 +370,39 @@ class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
 
     def test_returns_map_of_name_to_generator(self):
         self.make_submission({'000000': [], '000001': []})
-        sequences = submission_loader.read_submission(self.temp_dir)
+        sequences = submission_loader.read_submission(self.temp_dir, {'000000', '000001'})
         self.assertIn('000000', sequences)
         self.assertIn('000001', sequences)
         self.assertIsInstance(sequences['000000'], types.GeneratorType)
         self.assertIsInstance(sequences['000001'], types.GeneratorType)
+
+    def test_finds_only_requested_sequences(self):
+        self.make_submission({'000000': [], '000001': []})
+        sequences = submission_loader.read_submission(self.temp_dir, {'000000'})
+        self.assertEqual({'000000'}, set(sequences.keys()))
+        self.assertIsInstance(sequences['000000'], types.GeneratorType)
+
+    def test_searches_for_sequences_in_subfolders(self):
+        self.make_submission({'000000': [], '000001': []}, 'folder_a')
+        self.make_submission({'000002': [], '000003': []}, 'folder_b')
+        sequence_names = {'000000', '000001', '000002', '000003'}
+        sequences = submission_loader.read_submission(self.temp_dir, sequence_names)
+        self.assertEqual(sequence_names, set(sequences.keys()))
+        self.assertIsInstance(sequences['000000'], types.GeneratorType)
+        self.assertIsInstance(sequences['000001'], types.GeneratorType)
+        self.assertIsInstance(sequences['000002'], types.GeneratorType)
+        self.assertIsInstance(sequences['000003'], types.GeneratorType)
+
+    def test_raises_error_if_duplicate_sequence(self):
+        self.make_submission({'000000': [], '000001': []}, 'folder_a')
+        self.make_submission({'000000': [], '000002': []}, 'folder_b')
+        sequence_names = {'000000', '000001', '000002'}
+
+        with self.assertRaises(ValueError) as cm:
+            submission_loader.read_submission(self.temp_dir, sequence_names)
+        msg = str(cm.exception)
+        self.assertIn('folder_a/000000.json', msg)
+        self.assertIn('folder_b/000000.json', msg)
 
     def test_generators_read_sequences(self):
         submission = {
@@ -413,7 +444,7 @@ class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
             ]
         }
         self.make_submission(submission)
-        sequences = submission_loader.read_submission(self.temp_dir)
+        sequences = submission_loader.read_submission(self.temp_dir, {'000000', '000001'})
         for sequence_name, detections in submission.items():
             self.assertIn(sequence_name, sequences)
             seq_dets = list(sequences[sequence_name])
