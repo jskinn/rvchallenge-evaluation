@@ -346,6 +346,40 @@ class TestSubmissionLoaderReadSequence(th.ExtendedTestCase):
         msg = str(cm.exception)
         self.assertIn('test.json', msg)
 
+    def test_errors_if_no_valid_classes(self):
+        detections = [
+            [{
+                'label_probs': [0.1, 0.2, 0.3, 0.4],
+                'bbox': [12, 14, 55, 46],
+                'covars': [[[1, 0], [0, 1]], [[1, 0], [0, 1]]]
+            }],
+            [],
+            [],
+            [{
+                'label_probs': [0.1, 0.2, 0.3, 0.4],
+                'bbox': [12, 14, 55, 46],
+                'covars': [[[1, 0], [0, 1]], [[1, 0], [0, 1]]]
+            }, {
+                'label_probs': [0.1, 0.2, 0.3, 0.4],
+                'bbox': [12, 14, 55, 46],
+                'covars': [[[1, 2], [2, 1]], [[1, 0], [0, 1]]]
+            }],
+        ]
+        patch_classes(detections)
+
+        os.makedirs(self.temp_dir, exist_ok=True)
+        json_file = os.path.join(self.temp_dir, 'test.json')
+        with open(json_file, 'w') as fp:
+            json.dump({
+                'classes': [str(idx) for idx in range(len(class_list.CLASSES))],
+                'detections': detections
+            }, fp)
+
+        with self.assertRaises(ValueError) as cm:
+            next(submission_loader.read_sequence(json_file))
+        msg = str(cm.exception)
+        self.assertIn('test.json', msg)
+
 
 class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
     temp_dir = os.path.join(os.path.dirname(__file__), 'temp')

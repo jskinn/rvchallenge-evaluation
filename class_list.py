@@ -64,7 +64,7 @@ SYNONYMS = {
     # background classes
     'background': 'none',
     'bg': 'none',
-    '__backgroud__': 'none'
+    '__background__': 'none'
 }
 
 

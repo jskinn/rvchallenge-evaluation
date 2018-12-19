@@ -74,6 +74,8 @@ def read_sequence(sequence_json):
         raise KeyError("{0} : Missing key \'classes\'".format(sequence_name))
     if 'detections' not in data_dict:
         raise KeyError("{0} : Missing key \'detections\'".format(sequence_name))
+    if len(set(data_dict['classes']) & (set(class_list.CLASS_IDS) | set(class_list.SYNONYMS.keys()))) <= 0:
+        raise ValueError("{0} : classes does not contain any recognized classes".format(sequence_name))
 
     # Work out which of the submission classes correspond to which of our classes
     our_class_ids = []
