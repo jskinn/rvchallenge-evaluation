@@ -149,6 +149,10 @@ class TestPBoxGeneration(th.ExtendedTestCase):
         self.standard_test([250.5, 250.5, 749.5, 749.5], [[[0.001, 0], [0, 0.001]], [[0.0001, 0], [0, 0.0001]]],
                            'test_pbox_tiny_both_covar_fractional_mean')
 
+    def test_pbox_singular_covar(self):
+        self.standard_test([250, 250, 749, 749], [[[2000, 200], [1000, 100]], self.default_covar],
+                           'test_pbox_singular_covar')
+
     def standard_test(self, corners, cov, test_name):
         correct_heatmap = create_correct_pbox_heatmap(self.img_size, corners, cov)
         detector_heatmap = data_holders.PBoxDetInst(self.default_label_list, corners, cov).calc_heatmap(self.img_size)

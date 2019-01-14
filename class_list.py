@@ -23,12 +23,11 @@ CLASSES = [
     'cell phone',
     'book',
     # 'vase',
-    'pen',
+    # 'pen',
     'clock',
 
     # furniture classes
     'chair',
-    'potted plant',
     'dining table',
     'couch',
     'bed',

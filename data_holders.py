@@ -132,13 +132,17 @@ def find_roi(img_size, mean, cov):
     maxx = int(min(mean[1] + stdx * 5, img_size[1] - 1))
     maxy = int(min(mean[0] + stdy * 5, img_size[0] - 1))
 
+    # If the covariance is singular, we can't do any better in our estimate.
+    if np.abs(np.linalg.det(cov)) < 1e-8:
+        return minx, miny, maxx, maxy
+
     # produce list of positions [y,x] to compare to the given mean location
     approx_roi_shape = (maxy + 1 - miny, maxx + 1 - minx)
     positions = np.indices(approx_roi_shape).T.reshape(-1, 2)
     positions[:, 0] += miny
     positions[:, 1] += minx
-
     # Calculate the mahalanobis distances to those locations (number of standard deviations)
+    # Can only do this for non-singular matrices
     mdists = cdist(positions, np.array([mean]), metric='mahalanobis', VI=np.linalg.inv(cov))
     mdists = mdists.reshape(approx_roi_shape[1], approx_roi_shape[0]).T
 
@@ -152,7 +156,7 @@ def find_roi(img_size, mean, cov):
 
     # Mask out samples that are outside the desired distance (extremely low probability points)
     mask = mdists <= _2D_MAH_DIST_THRESH
-    mask[dist_meany, dist_meanx] = True     # Force the pixel containing the mean to be true, we always care about that.
+    mask[dist_meany, dist_meanx] = True  # Force the pixel containing the mean to be true, we always care about that
     roi_box = utils.generate_bounding_box_from_mask(mask)
 
     return roi_box[0] + minx, roi_box[1] + miny, roi_box[2] + minx, roi_box[3] + miny
@@ -167,7 +171,7 @@ def gen_single_heatmap(img_size, mean, cov):
     :return: heatmap image of size <img_size> with spatial probabilities between 0 and 1.
     """
     heatmap = np.zeros(img_size, dtype=np.float32)
-    g = multivariate_normal(mean=mean, cov=cov)
+    g = multivariate_normal(mean=mean, cov=cov, allow_singular=True)
 
     roi_box = find_roi(img_size, mean, cov)
     positions = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, roi_box[0] + 1:roi_box[2] + 2])
