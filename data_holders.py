@@ -129,8 +129,8 @@ def find_roi(img_size, mean, cov):
 
     minx = int(max(mean[1] - stdx * 5, 0))
     miny = int(max(mean[0] - stdy * 5, 0))
-    maxx = int(min(mean[1] + stdx * 5, img_size[1]))
-    maxy = int(min(mean[0] + stdy * 5, img_size[0]))
+    maxx = int(min(mean[1] + stdx * 5, img_size[1] - 1))
+    maxy = int(min(mean[0] + stdy * 5, img_size[0] - 1))
 
     # produce list of positions [y,x] to compare to the given mean location
     approx_roi_shape = (maxy + 1 - miny, maxx + 1 - minx)
@@ -142,17 +142,20 @@ def find_roi(img_size, mean, cov):
     mdists = cdist(positions, np.array([mean]), metric='mahalanobis', VI=np.linalg.inv(cov))
     mdists = mdists.reshape(approx_roi_shape[1], approx_roi_shape[0]).T
 
+    # Shift around the mean to change which corner of the pixel we're using for the mahalanobis distance
+    dist_meany = max(min(int(mean[0] - miny), img_size[0] - 1), 0)
+    dist_meanx = max(min(int(mean[1] - minx), img_size[1] - 1), 0)
+    if 0 < dist_meany < img_size[0] - 1:
+        mdists[:dist_meany, :] = mdists[1:dist_meany + 1, :]
+    if 0 < dist_meanx < img_size[1] - 1:
+        mdists[:, :dist_meanx] = mdists[:, 1:dist_meanx + 1]
+
     # Mask out samples that are outside the desired distance (extremely low probability points)
     mask = mdists <= _2D_MAH_DIST_THRESH
+    mask[dist_meany, dist_meanx] = True     # Force the pixel containing the mean to be true, we always care about that.
+    roi_box = utils.generate_bounding_box_from_mask(mask)
 
-    # Place mask in-context of original image
-    img_mask = np.zeros(img_size, dtype=np.bool)
-    img_mask[miny:maxy+1, minx:maxx+1] = mask
-
-    # Find the box coordinates which inclusively hold all points of interest
-    roi_box = utils.generate_bounding_box_from_mask(img_mask)
-
-    return roi_box
+    return roi_box[0] + minx, roi_box[1] + miny, roi_box[2] + minx, roi_box[3] + miny
 
 
 def gen_single_heatmap(img_size, mean, cov):
@@ -167,9 +170,12 @@ def gen_single_heatmap(img_size, mean, cov):
     g = multivariate_normal(mean=mean, cov=cov)
 
     roi_box = find_roi(img_size, mean, cov)
-    positions = np.dstack(np.mgrid[roi_box[1]+1:roi_box[3]+2, roi_box[0]+1:roi_box[2]+2])
+    positions = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, roi_box[0] + 1:roi_box[2] + 2])
 
     prob = g.cdf(positions)
+
+    if len(prob.shape) == 1:
+        prob.shape = (roi_box[3] + 1 - roi_box[1], roi_box[2] + 1 - roi_box[0])
 
     heatmap[roi_box[1]:roi_box[3]+1, roi_box[0]:roi_box[2]+1] = prob
     heatmap[roi_box[3]:, roi_box[0]:roi_box[2]+1] = np.array(heatmap[roi_box[3], roi_box[0]:roi_box[2]+1], ndmin=2)
@@ -177,22 +183,28 @@ def gen_single_heatmap(img_size, mean, cov):
     heatmap[roi_box[3]+1:, roi_box[2]+1:] = 1.0
 
     # If your region of interest includes outside the main image, remove probability of existing outside the image
-    if roi_box[0] == 0 or roi_box[1] == 0:
-        pos_outside_y = np.dstack(np.mgrid[0:1, 0:img_size[1] + 1])  # points above the image
-        pos_outside_x = np.dstack(np.mgrid[0:img_size[0] + 1, 0:1])  # points left of the image
-
-        prob_outside_y = g.cdf(pos_outside_y)
-        prob_outside_x = g.cdf(pos_outside_x)
-
+    # Remove probability of being outside in the x direction
+    if roi_box[0] == 0:
+        pos_outside_x = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, 0:1])  # points left of the image
+        prob_outside_x = np.zeros((img_size[0], 1), dtype=np.float32)
+        prob_outside_x[roi_box[1]:roi_box[3] + 1, 0] = g.cdf(pos_outside_x)
+        prob_outside_x[roi_box[3] + 1:, 0] = prob_outside_x[roi_box[3], 0]
         # Final probability is your overall cdf minus the probability in-line with that point along
         # the border for both dimensions plus the cdf at (-1, -1) which has points counted twice otherwise
-        heatmap -= prob_outside_y[1:].reshape((1, len(prob_outside_y) - 1))
-        heatmap -= prob_outside_x[1:].reshape((len(prob_outside_x) - 1, 1))
-        heatmap += prob_outside_y[0]
+        heatmap -= prob_outside_x
 
-        # Return points less than the roi to be equal to zero (considered too small to be worth bothering with)
-        # Otherwise these points will have negative values after subtraction
-        heatmap[:roi_box[1], :] = 0.0
-        heatmap[:, :roi_box[0]] = 0.0
+    # Remove probability of being outside in the x direction
+    if roi_box[1] == 0:
+        pos_outside_y = np.dstack(np.mgrid[0:1, roi_box[0] + 1:roi_box[2] + 2])  # points above the image
+        prob_outside_y = np.zeros((1, img_size[1]), dtype=np.float32)
+        prob_outside_y[0, roi_box[0]:roi_box[2] + 1] = g.cdf(pos_outside_y)
+        prob_outside_y[0, roi_box[2] + 1:] = prob_outside_y[0, roi_box[2]]
+        heatmap -= prob_outside_y
+
+    # If we've subtracted twice, we need to re-add the probability of the far corner
+    if roi_box[0] == 0 and roi_box[1] == 0:
+        heatmap += g.cdf([[[0, 0]]])
+
+    heatmap[heatmap < _HEATMAP_THRESH] = 0
 
     return heatmap

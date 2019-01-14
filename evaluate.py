@@ -17,7 +17,7 @@ def do_evaluation(submission_dir, ground_truth_dir):
     :return:
     """
     ground_truth = gt_loader.read_ground_truth(ground_truth_dir)
-    detections = submission_loader.read_submission(submission_dir)
+    detections = submission_loader.read_submission(submission_dir, expected_sequence_names=set(ground_truth.keys()))
     matches = gt_loader.match_sequences(ground_truth, detections)
     evaluator = PDQ()
     score = evaluator.score(matches)

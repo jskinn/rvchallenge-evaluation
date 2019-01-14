@@ -4,6 +4,7 @@ import data_holders
 from scipy.stats import multivariate_normal
 import time
 
+
 class TestBBoxDetInst(th.ExtendedTestCase):
 
     def test_calc_heatmap_int_args(self):
@@ -65,6 +66,7 @@ class TestBBoxDetInst(th.ExtendedTestCase):
 
 
 class TestPBoxGeneration(th.ExtendedTestCase):
+    max_errors = {}
 
     def setUp(self):
         self.img_size = (1000, 1010)
@@ -72,62 +74,90 @@ class TestPBoxGeneration(th.ExtendedTestCase):
         self.default_label_list = [1, 0]
         self.places = 2
 
-    def test_central_pbox(self):
-        correct_heatmap = create_correct_pbox_heatmap(self.img_size, [250, 250, 749, 749],
-                                                      [self.default_covar, self.default_covar])
-        detector_heatmap = data_holders.PBoxDetInst(
-            self.default_label_list, [250, 250, 749, 749],
-            [self.default_covar, self.default_covar]
-        ).calc_heatmap(self.img_size)
+    @classmethod
+    def tearDownClass(cls):
+        for test_name, err in cls.max_errors.items():
+            print("{0}: {1}".format(test_name, err))
 
-        self.assertGreaterEqual(np.min(detector_heatmap), 0.0)
-        self.assertLessEqual(np.max(detector_heatmap), 1.0)
-        self.assertAlmostEqual(np.max(np.abs(correct_heatmap - detector_heatmap)), 0.0, places=self.places)
+    def test_central_pbox(self):
+        self.standard_test([250, 250, 749, 749], [self.default_covar, self.default_covar], 'test_central_pbox')
+
+    def test_fractional_means(self):
+        self.standard_test([250.1, 250.8, 749.2, 749.4], [self.default_covar, self.default_covar], 'test_central_pbox')
 
     def test_pbox_far_left(self):
-        correct_heatmap = create_correct_pbox_heatmap(self.img_size, [0, 250, 499, 749],
-                                                      [self.default_covar, self.default_covar])
-        detector_heatmap = data_holders.PBoxDetInst(
-            self.default_label_list, [0, 250, 499, 749],
-            [self.default_covar, self.default_covar]
-        ).calc_heatmap(self.img_size)
-
-        self.assertGreaterEqual(np.min(detector_heatmap), 0.0)
-        self.assertLessEqual(np.max(detector_heatmap), 1.0)
-        self.assertAlmostEqual(np.max(np.abs(correct_heatmap - detector_heatmap)), 0.0, places=self.places)
+        self.standard_test([0, 250, 499, 749], [self.default_covar, self.default_covar], 'test_pbox_far_left')
 
     def test_pbox_far_right(self):
-        correct_heatmap = create_correct_pbox_heatmap(self.img_size, [500, 250, 999, 749],
-                                                      [self.default_covar, self.default_covar])
-        detector_heatmap = data_holders.PBoxDetInst(self.default_label_list, [500, 250, 999, 749],
-                                                    [self.default_covar, self.default_covar]
-                                                    ).calc_heatmap(self.img_size)
-
-        self.assertGreaterEqual(np.min(detector_heatmap), 0.0)
-        self.assertLessEqual(np.max(detector_heatmap), 1.0)
-        self.assertAlmostEqual(np.max(np.abs(correct_heatmap - detector_heatmap)), 0.0, places=self.places)
+        self.standard_test([500, 250, 999, 749], [self.default_covar, self.default_covar], 'test_pbox_far_right')
 
     def test_pbox_top(self):
-        correct_heatmap = create_correct_pbox_heatmap(self.img_size, [250, 0, 749, 499],
-                                                      [self.default_covar, self.default_covar])
-        detector_heatmap = data_holders.PBoxDetInst(self.default_label_list, [250, 0, 749, 499],
-                                                    [self.default_covar, self.default_covar]
-                                                    ).calc_heatmap(self.img_size)
-
-        self.assertGreaterEqual(np.min(detector_heatmap), 0.0)
-        self.assertLessEqual(np.max(detector_heatmap), 1.0)
-        self.assertAlmostEqual(np.max(np.abs(correct_heatmap - detector_heatmap)), 0.0, places=self.places)
+        self.standard_test([250, 0, 749, 499], [self.default_covar, self.default_covar], 'test_pbox_top')
 
     def test_pbox_bottom(self):
-        correct_heatmap = create_correct_pbox_heatmap(self.img_size, [250, 500, 749, 999],
-                                                      [self.default_covar, self.default_covar])
-        detector_heatmap = data_holders.PBoxDetInst(self.default_label_list, [250, 500, 749, 999],
-                                                    [self.default_covar, self.default_covar]
-                                                    ).calc_heatmap(self.img_size)
+        self.standard_test([250, 500, 749, 999], [self.default_covar, self.default_covar], 'test_pbox_bottom')
+
+    def test_pbox_outside_left(self):
+        self.standard_test([-100, 250, 499, 749], [self.default_covar, self.default_covar], 'test_pbox_outside_left')
+
+    def test_pbox_outside_right(self):
+        self.standard_test([500, 250, 1100, 749], [self.default_covar, self.default_covar], 'test_pbox_outside_right')
+
+    def test_pbox_outside_top(self):
+        self.standard_test([250, -100, 749, 499], [self.default_covar, self.default_covar], 'test_pbox_outside_top')
+
+    def test_pbox_outside_bottom(self):
+        self.standard_test([250, 500, 749, 1100], [self.default_covar, self.default_covar], 'test_pbox_outside_bottom')
+
+    def test_pbox_top_left_hits_right_edge(self):
+        self.standard_test([950, 250, 999, 749], [self.default_covar, self.default_covar],
+                           'test_pbox_top_left_hits_right_edge')
+
+    def test_pbox_top_left_hits_bottom_edge(self):
+        self.standard_test([250, 950, 749, 999], [self.default_covar, self.default_covar],
+                           'test_pbox_top_left_hits_right_edge')
+
+    def test_pbox_bottom_right_hits_left_edge(self):
+        self.standard_test([1, 250, 50, 749], [self.default_covar, self.default_covar],
+                           'test_pbox_bottom_right_hits_left_edge')
+
+    def test_pbox_bottom_right_hits_top_edge(self):
+        self.standard_test([250, 1, 749, 50], [self.default_covar, self.default_covar],
+                           'test_pbox_bottom_right_hits_top_edge')
+
+    def test_pbox_single_pixel_wide(self):
+        self.standard_test([250, 250, 250, 749], [[[0.001, 0], [0, 1]], self.default_covar],
+                           'test_pbox_single_pixel_wide')
+
+    def test_pbox_single_pixel_tall(self):
+        self.standard_test([250, 250, 749, 250], [self.default_covar, [[1, 0], [0, 0.0001]]],
+                           'test_pbox_single_pixel_tall')
+
+    def test_pbox_tiny_x_covar(self):
+        self.standard_test([250, 250, 749, 749], [[[0.001, 0], [0, 1]], [[0.0001, 0], [0, 1]]],
+                           'test_pbox_tiny_x_covar')
+
+    def test_pbox_tiny_y_covar(self):
+        self.standard_test([250, 250, 749, 749], [[[1, 0], [0, 0.001]], [[1, 0], [0, 0.0001]]],
+                           'test_pbox_tiny_x_covar')
+
+    def test_pbox_tiny_both_covar(self):
+        self.standard_test([250, 250, 749, 749], [[[0.001, 0], [0, 0.001]], [[0.0001, 0], [0, 0.0001]]],
+                           'test_pbox_tiny_both_covar')
+
+    def test_pbox_tiny_both_covar_fractional_mean(self):
+        self.standard_test([250.5, 250.5, 749.5, 749.5], [[[0.001, 0], [0, 0.001]], [[0.0001, 0], [0, 0.0001]]],
+                           'test_pbox_tiny_both_covar_fractional_mean')
+
+    def standard_test(self, corners, cov, test_name):
+        correct_heatmap = create_correct_pbox_heatmap(self.img_size, corners, cov)
+        detector_heatmap = data_holders.PBoxDetInst(self.default_label_list, corners, cov).calc_heatmap(self.img_size)
 
         self.assertGreaterEqual(np.min(detector_heatmap), 0.0)
         self.assertLessEqual(np.max(detector_heatmap), 1.0)
-        self.assertAlmostEqual(np.max(np.abs(correct_heatmap - detector_heatmap)), 0.0, places=self.places)
+        max_error = np.max(np.abs(correct_heatmap - detector_heatmap))
+        self.assertAlmostEqual(max_error, 0.0, places=self.places)
+        self.max_errors[test_name] = max_error
 
     def test_is_faster_than_correct(self):
         start_correct_time = time.time()

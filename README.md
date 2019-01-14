@@ -2,7 +2,7 @@ ACRV Robotic Vision Challenge 1 Evaluation Program
 ==================================================
 
 Evaluation code for the ACRV Robotic Vision Challenge 1, see
-https://competitions.codalab.org/competitions/19742
+https://competitions.codalab.org/competitions/20940
 
 This is the code that will be used to evaluate all submissions.
 For the starter kit, see:
