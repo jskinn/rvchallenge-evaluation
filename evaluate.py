@@ -26,7 +26,7 @@ def do_evaluation(submission_dir, ground_truth_dir):
     avg_label_quality = evaluator.get_avg_label_score()
     avg_overall_quality = evaluator.get_avg_overall_quality_score()
     return {
-        'score': score,
+        'score': score*100,
         'avg_spatial': avg_spatial_quality,
         'avg_label': avg_label_quality,
         'avg_pPDQ': avg_overall_quality,
