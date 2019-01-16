@@ -12,21 +12,23 @@ import class_list
 def read_ground_truth(directory):
     """
     Read all the ground truth from all the sequences in the given folder.
-    A sequence folder is only one
+    Each sequence is a folder containing a json file and some number of mask images
 
     Folder structure is is:
-    sequence_0/
+    000000/
         labels.json
-        000000.masks.npz
+        0.png
+        1.png
         ...
-    sequence_1/
+    000001/
         labels.json
-        000000.masks.npz
+        0.png
+        1.png
         ...
     ...
 
-    :param directory:
-    :return:
+    :param directory: location of root directory where folders containing sequence's gt data are located
+    :return: sequences: dictionary of sequence gt generators
     """
     sequences = {}
     for sequence_dir in os.listdir(directory):
@@ -38,25 +40,51 @@ def read_ground_truth(directory):
 
 def read_sequence(sequence_directory):
     """
-    Create a generator to read all the ground truth information for a particular
+    Create a generator to read all the ground truth information for a particular sequence.
     Each iteration of the generator returns another generator over the ground truth instances
     for that image.
     Given that the image ids are integers, it is guaranteed to return the ground truth in
     numerical frame order.
 
-    Ground truth format is a labels.json file, and some number of <image_id>.masks.npz files containing
+    Ground truth format is a labels.json file, and some number of images containing
     the segmentation masks.
     labels.json should be:
     {
       <image_id>: {
-        <instance_id>: <class name>
+        "_metadata": {"mask_name":<mask_image_filename>, "mask_channel": <mask_image_channel>},
+        <instance_id>: {
+            "class": <class_name>, "mask_id": <mask_id>, "bounding_box": <bounding_box>
+            }
         ...
       }
       ...
     }
 
+    <image_id> : The id of the particular image, a 6-digit id in ascending frame order.
+    The first frame is "000000", the second "000001", etc.
+
+    <mask_image_filename> : Path of the mask image containing the masks for this image,
+    which should exist in the same folder as labels.json (e.g. "0.png")
+    Note that the masks are contained in one channel of this RGB image.
+
+    <mask_image_channel> : channel from the mask image containing the masks for this image.
+    As OpenCV is in BGR order, the 0th channel will be the Blue channel of the mask image.
+
+    <instance_id> : id given to the object itself (not just the current visualised instance thereof).
+    These ids are consistent between frames, and can be used for instance tracking.
+
+    <class_name> : string name of the given object's class
+
+    <mask_id> : the value of the mask image pixels where this object appears.
+    That is, if <mask_id> is 10, <mask_image_filename> is "0.png", and <mask_image_channel> is 0,
+    then the pixels for this object are all the places the blue channel of "0.png" is 10.
+
+    <bounding_box> : bounding box encapsulating instance mask in format [left, top, right, bottom]
+
+
     :param sequence_directory: The ground truth directory, containing labels.json
-    :return:
+    :return: sequence_generator: generator for the gt of a given sequence over all images in that sequence.
+    Note that the sequence_generator produces an image gt generator over all gt instances in that image.
     """
     with open(os.path.join(sequence_directory, 'labels.json'), 'r') as fp:
         labels = json.load(fp)
@@ -84,8 +112,9 @@ def read_gt_for_image(image_id, image_data, masks):
     Read ground truth for a particular image
     :param image_id: The id of the image from the labels
     :param image_data: The image data from the labels json
-    :param masks: An image containing all the masks in the image
-    :return:
+    :param masks: A greyscale image containing all the masks in the image
+    :return: image_generator: generator of GroundTruthInstances objects for each gt instance present in
+    the given image.
     """
     if len(image_data) > 0:
         for instance_name in sorted(image_data.keys()):
