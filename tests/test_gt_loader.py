@@ -29,16 +29,13 @@ class TestGroundTruthLoaderRead(unittest.TestCase):
 
         # This is lifted out of sequence_processing.py, is how the ground truth is written
         labels = {}
-        mask = None
         mask_idx = 0
-        mask_name = "{0}.masks.png".format(mask_idx)
-        mask_channel = 0
         for image_id in sorted(sequence_data.keys()):
             image_name = '{0:06}'.format(image_id)
+            mask_name = "{0}.masks.png".format(mask_idx)
             img_labels = {
                 '_metadata': {
-                    'mask_name': mask_name,
-                    'mask_channel': mask_channel
+                    'mask_name': mask_name
                 }
             }
             im_mask = np.zeros((100, 100), dtype=np.uint8)
@@ -53,25 +50,10 @@ class TestGroundTruthLoaderRead(unittest.TestCase):
                 add_mask(im_mask, x1, y1, x2, y2, detection_mask_id)
                 detection_mask_id += 1
 
-            # Write 3 masks together into a file
-            if mask is None:
-                mask = np.zeros(shape=[im_mask.shape[0], im_mask.shape[1], 3], dtype=np.uint8)
-            mask[:, :, mask_channel] = im_mask
-
-            mask_channel += 1
-            if mask_channel >= 3:
-                # This mask image is full, save it and move on to the next one
-                if np.any(mask):
-                    cv2.imwrite(os.path.join(root_dir, mask_name), mask)
-                mask = None
-                mask_idx += 1
-                mask_name = "{0}.masks.png".format(mask_idx)
-                mask_channel = 0
-
+            # This mask image is full, save it and move on to the next one
+            cv2.imwrite(os.path.join(root_dir, mask_name), im_mask)
+            mask_idx += 1
             labels[image_name] = img_labels
-
-        if mask is not None:
-            cv2.imwrite(os.path.join(root_dir, mask_name), mask)
 
         # Save the combined labels and masks to file
         with open(os.path.join(root_dir, 'labels.json'), 'w') as fp:
