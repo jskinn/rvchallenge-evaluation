@@ -26,9 +26,10 @@ Structure
 
 This code is structured as a CodaLab scoring program.
 
-The main method is contained in `evaluate.py`, which takes an input directory and output directory as command-line
-arguments. The input directory must contain a submission in a folder called 'res', which is read by the submission
-loader (`submission_loader.py`), and the ground truth information read by the ground truth loader (`gt_loader.py`).
+To run code as done within codalab, run `evaluate_codalab.py`, which takes an input directory and output directory as 
+command-line arguments. The input directory must contain a submission in a folder called 'res', which is read by the 
+submission loader (`submission_loader.py`), and the ground truth information in a folder called 'ref', which is read by 
+the ground truth loader (`gt_loader.py`).
 The resulting intermediate objects are defined in `data_holders.py`,
 and are passed to `pdq.py` to perform the evaluation.
 
@@ -51,3 +52,21 @@ here:
 https://competitions.codalab.org/competitions/20940#learn_the_details-evaluation
 
 This metric is implemented in `pdq.py`
+
+
+Evaluating Results
+------------------
+Evaluating detections for a set of sequences can be done running `evaluate.py`.
+
+This can be run from the command line with the following arguments:
+
+`--gt_folder` - this is the directory which contains all ground-truth sub-folders to be evaluated against 
+(one for each sequence).
+
+`--det_folder` - this is the directory which contains all detection .json files to be evaluated 
+(one for each sequence with filenames matching corresponding ground-truth sub-folder)
+
+`--save_folder` - this is the directory where your final scores will be saved. If the folder does not already exist
+it shall be created.
+
+
