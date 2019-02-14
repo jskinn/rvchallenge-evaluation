@@ -37,7 +37,7 @@ class TestIntegration(unittest.TestCase):
         scores_data = read_scores_file(scores_text)
         self.assertIn('score', scores_data)
         self.assertGreaterEqual(scores_data['score'], 0)
-        self.assertLessEqual(scores_data['score'], 1)
+        self.assertLessEqual(scores_data['score'], 100)
         self.assertIn('avg_spatial', scores_data)
         self.assertGreaterEqual(scores_data['avg_spatial'], 0)
         self.assertLessEqual(scores_data['avg_spatial'], 1)

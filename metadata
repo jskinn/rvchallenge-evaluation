@@ -1,2 +1,2 @@
-command: python $program/evaluate.py $input $output
+command: python $program/evaluate_codalab.py $input $output
 description: Example competition evaluation program.

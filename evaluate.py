@@ -7,14 +7,26 @@ import os.path
 import gt_loader
 import submission_loader
 from pdq import PDQ
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--gt_folder', '-g', help='location of folder with sub-folders of gt annotations'
+                                              '(one sub-folder per sequence)')
+parser.add_argument('--det_folder', '-d', help='location of folder containing detection .json files'
+                                               '(must have one .json file for each sequence)')
+parser.add_argument('--save_folder', '-s', help='location of folder where scores.txt will be saved')
+args = parser.parse_args()
 
 
 def do_evaluation(submission_dir, ground_truth_dir):
     """
     Evaluate a particular image sequence
-    :param submission_dir:
-    :param ground_truth_dir:
-    :return:
+    :param submission_dir: location of the detections .json files (one for each sequence)
+    :param ground_truth_dir: location of the ground-truth folders (one for each sequence).
+    Each ground-truth folder must contain mask images (.png format) and a matching labels.json file.
+    :return: Dictionary containing summary of all metrics used in competition leaderboard
+    (score, average spatial quality, average label quality, average overall quality (avg_pPDQ),
+    true positives, false positives, and false negatives)
     """
     ground_truth = gt_loader.read_ground_truth(ground_truth_dir)
     detections = submission_loader.read_submission(submission_dir, expected_sequence_names=set(ground_truth.keys()))
@@ -36,11 +48,9 @@ def do_evaluation(submission_dir, ground_truth_dir):
     }
 
 
-def main(input_dir, output_dir):
-    # Get the submission and ground truth directories from the input directory
-    submit_dir = os.path.join(input_dir, 'res')
-    truth_dir = os.path.join(input_dir, 'ref')
-
+def main():
+    submit_dir = args.det_folder
+    truth_dir = args.gt_folder
     # Validate the directories, make sure they exist
     if not os.path.isdir(submit_dir):
         print("Submit dir \"{0}\" doesn't exist, cannot evaluate".format(submit_dir))
@@ -49,12 +59,12 @@ def main(input_dir, output_dir):
     else:
         result = do_evaluation(submit_dir, truth_dir)
 
-        # Write the result to file, to be read by the leaderboard
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        with open(os.path.join(output_dir, 'scores.txt'), 'w') as output_file:
+        # Write the result to file
+        if not os.path.exists(args.save_folder):
+            os.makedirs(args.save_folder)
+        with open(os.path.join(args.save_folder, 'scores.txt'), 'w') as output_file:
             output_file.write("\n".join("{0}:{1}".format(k, v) for k, v in result.items()))
 
 
 if __name__ == '__main__':
-    main(input_dir=sys.argv[1], output_dir=sys.argv[2])
+    main()
