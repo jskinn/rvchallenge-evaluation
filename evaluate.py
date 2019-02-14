@@ -9,14 +9,6 @@ import submission_loader
 from pdq import PDQ
 import argparse
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--gt_folder', '-g', help='location of folder with sub-folders of gt annotations'
-                                              '(one sub-folder per sequence)')
-parser.add_argument('--det_folder', '-d', help='location of folder containing detection .json files'
-                                               '(must have one .json file for each sequence)')
-parser.add_argument('--save_folder', '-s', help='location of folder where scores.txt will be saved')
-args = parser.parse_args()
-
 
 def do_evaluation(submission_dir, ground_truth_dir):
     """
@@ -67,4 +59,11 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--gt_folder', '-g', help='location of folder with sub-folders of gt annotations'
+                                                  '(one sub-folder per sequence)')
+    parser.add_argument('--det_folder', '-d', help='location of folder containing detection .json files'
+                                                   '(must have one .json file for each sequence)')
+    parser.add_argument('--save_folder', '-s', help='location of folder where scores.txt will be saved')
+    args = parser.parse_args()
     main()
