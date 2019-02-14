@@ -187,3 +187,38 @@ class TestPDQ(unittest.TestCase):
         score = evaluator.score([(gts, detections)])
 
         self.assertAlmostEqual(score, 0.5)
+
+    def test_no_detections_for_image(self):
+        gts1 = [val for val in self.square_gt]
+        gts2 = [GroundTruthInstance(self.square_mask, 0, 1, 1)]
+        dets1 = [BBoxDetInst(self.default_label_list, self.gt_box)]
+        dets2 = []
+        evaluator = PDQ()
+        score = evaluator.score([(gts1, dets1), (gts2, dets2)])
+
+        self.assertAlmostEqual(score, 0.5)
+
+    def test_no_detections_for_image_with_too_small_gt(self):
+        gts1 = [val for val in self.square_gt]
+        small_mask = np.zeros(self.img_size, dtype=np.bool)
+        small_mask[500:504, 500:501] = True
+        gts2 = [GroundTruthInstance(small_mask, 0, 1, 1)]
+        dets1 = [BBoxDetInst(self.default_label_list, self.gt_box)]
+        dets2 = []
+        evaluator = PDQ()
+        score = evaluator.score([(gts1, dets1), (gts2, dets2)])
+
+        self.assertAlmostEqual(score, 1.0)
+
+    def test_no_detections_for_image_with_small_and_big_gt(self):
+        gts1 = [val for val in self.square_gt]
+        small_mask = np.zeros(self.img_size, dtype=np.bool)
+        small_mask[500:504, 500:501] = True
+        gts2 = [GroundTruthInstance(self.square_mask, 0, 1, 1),
+                GroundTruthInstance(small_mask, 0, 1, 2)]
+        dets1 = [BBoxDetInst(self.default_label_list, self.gt_box)]
+        dets2 = []
+        evaluator = PDQ()
+        score = evaluator.score([(gts1, dets1), (gts2, dets2)])
+
+        self.assertAlmostEqual(score, 0.5)

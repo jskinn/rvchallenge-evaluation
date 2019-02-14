@@ -330,8 +330,16 @@ def _calc_qual_img(gt_instances, det_instances):
     """
     # if there are no detections or gt instances respectively the quality is zero
     if len(gt_instances) == 0 or len(det_instances) == 0:
+        FN = 0
+
+        # Filter out GT instances which are to be ignored because they are too small
+        if len(gt_instances) > 0:
+            for gt_idx, gt_instance in enumerate(gt_instances):
+                if _is_gt_included(gt_instance):
+                    FN += 1
+
         return {'overall': 0.0, 'spatial': 0.0, 'label': 0.0, 'TP': 0, 'FP': len(det_instances),
-                'FN': len(gt_instances)}
+                'FN': FN}
 
     # For each possible pairing, calculate the quality of that pairing and convert it to a cost
     # to enable use of the Hungarian algorithm.
