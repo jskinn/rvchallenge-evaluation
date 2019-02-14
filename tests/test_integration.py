@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import unittest
 import os.path
-import evaluate
+import evaluate_codalab
 
 
 try:
@@ -19,7 +19,7 @@ class TestIntegration(unittest.TestCase):
         output_dir = base_folder
         scores_file = os.path.join(base_folder, 'scores.txt')
 
-        evaluate.main(input_dir, output_dir)
+        evaluate_codalab.main(input_dir, output_dir)
 
         self.assertTrue(os.path.isfile(scores_file))
         with open(scores_file, 'r') as fp:
@@ -68,7 +68,7 @@ class TestIntegration(unittest.TestCase):
             os.remove(stats_file)
 
         profile.runctx('evaluate.main(input_dir, output_dir)', filename=stats_file, globals=globals(),
-                       locals={'evaluate': evaluate, 'input_dir': input_dir, 'output_dir': output_dir})
+                       locals={'evaluate': evaluate_codalab, 'input_dir': input_dir, 'output_dir': output_dir})
 
         self.assertTrue(os.path.isfile(scores_file))
         os.remove(scores_file)
