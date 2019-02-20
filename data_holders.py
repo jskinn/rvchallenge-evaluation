@@ -6,6 +6,7 @@ from scipy.spatial.distance import cdist
 
 _HEATMAP_THRESH = 0.0027
 _2D_MAH_DIST_THRESH = 3.439
+_SMALL_VAL = 1e-14
 
 
 class GroundTruthInstance(object):
@@ -174,7 +175,8 @@ def gen_single_heatmap(img_size, mean, cov):
     g = multivariate_normal(mean=mean, cov=cov, allow_singular=True)
 
     roi_box = find_roi(img_size, mean, cov)
-    positions = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, roi_box[0] + 1:roi_box[2] + 2])
+    # Note that we subtract small value to avoid fencepost issues with extremely low covariances.
+    positions = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, roi_box[0] + 1:roi_box[2] + 2]) - _SMALL_VAL
 
     prob = g.cdf(positions)
 
@@ -189,7 +191,7 @@ def gen_single_heatmap(img_size, mean, cov):
     # If your region of interest includes outside the main image, remove probability of existing outside the image
     # Remove probability of being outside in the x direction
     if roi_box[0] == 0:
-        pos_outside_x = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, 0:1])  # points left of the image
+        pos_outside_x = np.dstack(np.mgrid[roi_box[1] + 1:roi_box[3] + 2, 0:1]) - _SMALL_VAL  # points left of the image
         prob_outside_x = np.zeros((img_size[0], 1), dtype=np.float32)
         prob_outside_x[roi_box[1]:roi_box[3] + 1, 0] = g.cdf(pos_outside_x)
         prob_outside_x[roi_box[3] + 1:, 0] = prob_outside_x[roi_box[3], 0]
@@ -199,7 +201,7 @@ def gen_single_heatmap(img_size, mean, cov):
 
     # Remove probability of being outside in the x direction
     if roi_box[1] == 0:
-        pos_outside_y = np.dstack(np.mgrid[0:1, roi_box[0] + 1:roi_box[2] + 2])  # points above the image
+        pos_outside_y = np.dstack(np.mgrid[0:1, roi_box[0] + 1:roi_box[2] + 2]) - _SMALL_VAL  # points above the image
         prob_outside_y = np.zeros((1, img_size[1]), dtype=np.float32)
         prob_outside_y[0, roi_box[0]:roi_box[2] + 1] = g.cdf(pos_outside_y)
         prob_outside_y[0, roi_box[2] + 1:] = prob_outside_y[0, roi_box[2]]
@@ -207,7 +209,7 @@ def gen_single_heatmap(img_size, mean, cov):
 
     # If we've subtracted twice, we need to re-add the probability of the far corner
     if roi_box[0] == 0 and roi_box[1] == 0:
-        heatmap += g.cdf([[[0, 0]]])
+        heatmap += g.cdf([[[0 - _SMALL_VAL, 0 - _SMALL_VAL]]])
 
     heatmap[heatmap < _HEATMAP_THRESH] = 0
 
