@@ -7,7 +7,7 @@ import data_holders
 import class_list
 
 
-def read_submission(directory, expected_sequence_names):
+def read_submission(directory, expected_sequence_names, start_index=0, end_index=-1):
     """
     Read all the submissions for all the sequences outlined in the given folder.
     Each sequence's detections are provided in a file ending with 'detections.json'.
@@ -26,6 +26,8 @@ def read_submission(directory, expected_sequence_names):
 
     :param directory: location of each sequence's submission json file.
     :param expected_sequence_names: The list of sequence names we're looking for submissions for.
+    :param start_index: The first index to slice the detections for each sequence
+    :param end_index: The index to stop slicing the detections for each sequence
     :return: generator of generator of DetectionInstances for each image
     """
     sequences = {}
@@ -42,12 +44,12 @@ def read_submission(directory, expected_sequence_names):
                 else:
                     sequences[sequence_name] = os.path.join(root, json_file)
     return {
-        sequence_name: read_sequence(sequence_path)
+        sequence_name: read_sequence(sequence_path, start_index=start_index, end_index=end_index)
         for sequence_name, sequence_path in sequences.items()
     }
 
 
-def read_sequence(sequence_json):
+def read_sequence(sequence_json, start_index=0, end_index=-1):
     """
     Read a sequence's detection json file.
     json file contains a dictionary which has a key 'detections' containing a list of list of
@@ -63,6 +65,8 @@ def read_sequence(sequence_json):
     Order of list of lists should correspond with ground truth image order.
     If an image does not have any detections, entry should be an empty list.
     :param sequence_json:
+    :param start_index: The first index to slice the read detections.
+    :param end_index: The index to stop slicing the detections
     :return: generator of generator of DetectionInstances for each image
     """
     with open(sequence_json, 'r') as f:
@@ -88,8 +92,10 @@ def read_sequence(sequence_json):
 
     # create a detection instance for each detection described by dictionaries in dict_dets
     dict_dets = data_dict['detections']
-    for img_idx, img_dets in enumerate(dict_dets):
-        yield gen_img_pboxes(img_dets, (our_class_ids, sub_class_ids),
+    if end_index < start_index or end_index > len(dict_dets):
+        end_index = len(dict_dets)
+    for img_idx in range(start_index, end_index):
+        yield gen_img_pboxes(dict_dets[img_idx], (our_class_ids, sub_class_ids),
                              num_classes=len(data_dict['classes']), img_idx=img_idx, sequence_name=sequence_name)
 
 

@@ -9,7 +9,7 @@ import data_holders
 import class_list
 
 
-def read_ground_truth(directory):
+def read_ground_truth(directory, valid_sequences=None, start_index=0, end_index=-1):
     """
     Read all the ground truth from all the sequences in the given folder.
     Each sequence is a folder containing a json file and some number of mask images
@@ -28,17 +28,21 @@ def read_ground_truth(directory):
     ...
 
     :param directory: location of root directory where folders containing sequence's gt data are located
+    :param valid_sequences: A whitelist of sequences to read, as integers
+    :param start_index: The first index to slice the returned ground truth to. Default 0
+    :param end_index: The end index to stop slicing the returned ground truth. Defaults to all remaining
     :return: sequences: dictionary of sequence gt generators
     """
     sequences = {}
     for sequence_dir in os.listdir(directory):
-        sequence_path = os.path.join(directory, sequence_dir)
-        if os.path.isdir(sequence_path) and os.path.isfile(os.path.join(sequence_path, 'labels.json')):
-            sequences[sequence_dir.lower()] = read_sequence(sequence_path)
+        if valid_sequences is None or int(sequence_dir) in valid_sequences:
+            sequence_path = os.path.join(directory, sequence_dir)
+            if os.path.isdir(sequence_path) and os.path.isfile(os.path.join(sequence_path, 'labels.json')):
+                sequences[sequence_dir.lower()] = read_sequence(sequence_path, start_index, end_index)
     return sequences
 
 
-def read_sequence(sequence_directory):
+def read_sequence(sequence_directory, start_index=0, end_index=-1):
     """
     Create a generator to read all the ground truth information for a particular sequence.
     Each iteration of the generator returns another generator over the ground truth instances
@@ -83,12 +87,16 @@ def read_sequence(sequence_directory):
 
 
     :param sequence_directory: The ground truth directory, containing labels.json
+    :param start_index: The first index to slice the returned ground truth to. Default 0
+    :param end_index: The end index to stop slicing the returned ground truth. Defaults to all remaining
     :return: sequence_generator: generator for the gt of a given sequence over all images in that sequence.
     Note that the sequence_generator produces an image gt generator over all gt instances in that image.
     """
     with open(os.path.join(sequence_directory, 'labels.json'), 'r') as fp:
         labels = json.load(fp)
-    for image_id, image_name in sorted((int(l), l) for l in labels.keys()):
+    if end_index < start_index:
+        end_index = max(int(k) for k in labels.keys()) + 1
+    for image_id, image_name in sorted((int(l), l) for l in labels.keys() if start_index <= int(l) < end_index):
         if '_metadata' in labels[image_name]:
             im_mask_name = labels[image_name]['_metadata']['mask_name']
             mask_im = cv2.imread(os.path.join(sequence_directory, im_mask_name))
@@ -152,7 +160,6 @@ def match_sequences(ground_truth_sequences, detection_sequences):
                                  "({1} vs {2}). Remember that you need to output detections for every image, "
                                  "even if it is an empty list.".format(sequence_id, len(ground_truth_list),
                                                                        len(detections_list)))
-
             for frame_gt, frame_detections in zip(ground_truth_list, detections_list):
                 ground_truth = list(frame_gt)
                 detections = list(frame_detections)

@@ -222,6 +222,72 @@ class TestSubmissionLoaderReadSequence(th.ExtendedTestCase):
             img_dets = list(seq_dets[img_idx])
             self.assertEqual(len(detections[img_idx]), len(img_dets))
 
+    def test_slice_start_index(self):
+        det = {
+            'label_probs': [0.1, 0.2, 0.3, 0.4],
+            'bbox': [12, 14, 55, 46],
+            'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+        }
+        detections = [
+            [det for _ in range(1)],
+            [det for _ in range(3)],
+            [det for _ in range(5)],
+            [det for _ in range(7)],
+        ]
+        sequence_json = self.make_sequence(detections)
+        gen = submission_loader.read_sequence(sequence_json, start_index=2)
+        self.assertIsInstance(gen, types.GeneratorType)
+        seq_dets = list(gen)
+        self.assertEqual(len(detections) - 2, len(seq_dets))
+        for img_idx in range(2, len(seq_dets)):
+            self.assertIsInstance(seq_dets[img_idx], types.GeneratorType)
+            img_dets = list(seq_dets[img_idx])
+            self.assertEqual(len(detections[img_idx]), len(img_dets))
+
+    def test_slice_end_index(self):
+        det = {
+            'label_probs': [0.1, 0.2, 0.3, 0.4],
+            'bbox': [12, 14, 55, 46],
+            'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+        }
+        detections = [
+            [det for _ in range(1)],
+            [det for _ in range(3)],
+            [det for _ in range(5)],
+            [det for _ in range(7)],
+        ]
+        sequence_json = self.make_sequence(detections)
+        gen = submission_loader.read_sequence(sequence_json, end_index=3)
+        self.assertIsInstance(gen, types.GeneratorType)
+        seq_dets = list(gen)
+        self.assertEqual(3, len(seq_dets))
+        for img_idx in range(3):
+            self.assertIsInstance(seq_dets[img_idx], types.GeneratorType)
+            img_dets = list(seq_dets[img_idx])
+            self.assertEqual(len(detections[img_idx]), len(img_dets))
+
+    def test_slice_both(self):
+        det = {
+            'label_probs': [0.1, 0.2, 0.3, 0.4],
+            'bbox': [12, 14, 55, 46],
+            'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+        }
+        detections = [
+            [det for _ in range(1)],
+            [det for _ in range(3)],
+            [det for _ in range(5)],
+            [det for _ in range(7)],
+        ]
+        sequence_json = self.make_sequence(detections)
+        gen = submission_loader.read_sequence(sequence_json, start_index=1, end_index=3)
+        self.assertIsInstance(gen, types.GeneratorType)
+        seq_dets = list(gen)
+        self.assertEqual(2, len(seq_dets))
+        for img_idx in range(2):
+            self.assertIsInstance(seq_dets[img_idx], types.GeneratorType)
+            img_dets = list(seq_dets[img_idx])
+            self.assertEqual(len(detections[img_idx + 1]), len(img_dets))
+
     def test_returns_empty_generator_for_no_images(self):
         sequence_json = self.make_sequence([])
         gen = submission_loader.read_sequence(sequence_json)
@@ -492,6 +558,41 @@ class TestSubmissionLoaderReadSubmission(th.ExtendedTestCase):
                     expected_list = np.zeros(len(class_list.CLASSES), dtype=np.float32)
                     expected_list[0:len(expected_probs)] = expected_probs
                     self.assertNPEqual(expected_list, img_dets[det_idx].class_list)
+                    self.assertNPEqual(img_dets[det_idx].box, detections[img_idx][det_idx]['bbox'])
+
+    def test_generators_slice_sequences(self):
+        def make_det(idx):
+            return {
+                'label_probs': [0.1, 0.2, 0.3, 0.4],
+                'bbox': [12, 14, 55 + idx, 46 + idx],
+                'covars': [[[0, 0], [0, 0]], [[0, 0], [0, 0]]]
+            }
+        submission = {
+            '000000': [
+                [make_det(idx) for idx in range(3)],
+                [make_det(idx) for idx in range(5)],
+                [make_det(idx) for idx in range(7)],
+                [make_det(idx) for idx in range(9)]
+            ],
+            '000001': [
+                [make_det(idx) for idx in range(2)],
+                [make_det(idx) for idx in range(4)],
+                [make_det(idx) for idx in range(6)]
+            ]
+        }
+        self.make_submission(submission)
+        sequences = submission_loader.read_submission(self.temp_dir, {'000000', '000001'}, start_index=1, end_index=5)
+        for sequence_name in submission.keys():
+            self.assertIn(sequence_name, sequences)
+            seq_dets = list(sequences[sequence_name])
+            detections = submission[sequence_name][1:5]
+            self.assertEqual(len(detections), len(seq_dets))
+            for img_idx in range(len(seq_dets)):
+                img_dets = list(seq_dets[img_idx])
+                self.assertEqual(len(detections[img_idx]), len(img_dets))
+                for det_idx in range(len(img_dets)):
+                    self.assertIsInstance(img_dets[det_idx], data_holders.DetectionInstance)
+                    self.assertNPEqual(img_dets[det_idx].box, detections[img_idx][det_idx]['bbox'])
 
 
 def patch_classes(detections):
