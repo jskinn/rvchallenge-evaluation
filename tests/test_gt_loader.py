@@ -38,7 +38,10 @@ class BaseTestGroundTruthLoader(unittest.TestCase):
                     'mask_name': mask_name
                 }
             }
-            im_mask = np.zeros((100, 100), dtype=np.uint8)
+            if len(sequence_data[image_id]) > 255:
+                im_mask = np.zeros((100, 100), dtype=np.uint16)
+            else:
+                im_mask = np.zeros((100, 100), dtype=np.uint8)
             detection_mask_id = 1
             for instance_id in sorted(sequence_data[image_id].keys()):
                 instance_name = '{0:06}'.format(instance_id)
@@ -60,9 +63,9 @@ class BaseTestGroundTruthLoader(unittest.TestCase):
             json.dump(labels, fp)
 
 
-class TestGroundTruthLoaderReadGTForImage(BaseTestGroundTruthLoader):
+class TestGroundTruthLoaderReadGTForImage(unittest.TestCase):
 
-    def test_read_gt_for_image(self):
+    def test_reads_single_instance(self):
         random = np.random.RandomState(13)
         image_id = 12172
         detection_id = '000455'
@@ -149,7 +152,7 @@ class TestGroundTruthLoaderReadSequence(BaseTestGroundTruthLoader):
         for idx, image_gt in enumerate(result):
             image_id = image_ids[idx]
             images_loaded += 1
-            det_ids = sorted(self.sequence_data[image_id])
+            det_ids = sorted(self.sequence_data[image_id].keys())
 
             self.assertIsInstance(image_gt, types.GeneratorType)
             image_gt = list(image_gt)
@@ -187,6 +190,50 @@ class TestGroundTruthLoaderReadSequence(BaseTestGroundTruthLoader):
                 self.assertEqual(gt_obj.class_label, self.sequence_data[image_id][det_id]['class'])
                 self.assertEqual(gt_obj.bounding_box, list(self.sequence_data[image_id][det_id]['bbox']))
         self.assertEqual(images_loaded, len(self.sequence_data) - 1)
+
+
+class TestGroundTruthLoaderReadSequenceLarge(BaseTestGroundTruthLoader):
+
+    def test_read_lots_of_objects(self):
+        sequence_data = {
+            22: {
+                3 * (x + 20 * y) + 7: {
+                    'class': 1 + (13 * (x + 20 * y)) % (len(class_list.CLASSES) - 1),
+                    'bbox': (
+                        5 * x,
+                        5 * y,
+                        5 * (x + 1) - 1,
+                        5 * (y + 1) - 1
+                    )
+                }
+                for x in range(20)
+                for y in range(20)
+            }
+        }
+        self.make_sequence(sequence_data)
+
+        image_ids = sorted(sequence_data.keys())
+        images_loaded = 0
+
+        result = gt_loader.read_sequence(self.temp_dir)
+        self.assertIsInstance(result, types.GeneratorType)
+        for idx, image_gt in enumerate(result):
+            image_id = image_ids[idx]
+            images_loaded += 1
+            det_ids = sorted(sequence_data[image_id].keys())
+
+            self.assertIsInstance(image_gt, types.GeneratorType)
+            image_gt = list(image_gt)
+            self.assertEqual(len(image_gt), len(sequence_data[image_id]))
+
+            for det_idx, gt_obj in enumerate(image_gt):
+                det_id = det_ids[det_idx]
+
+                self.assertIsInstance(gt_obj, data_holders.GroundTruthInstance)
+                self.assertEqual(gt_obj.image_id, image_id)
+                self.assertEqual(gt_obj.class_label, sequence_data[image_id][det_id]['class'])
+                self.assertEqual(gt_obj.bounding_box, list(sequence_data[image_id][det_id]['bbox']))
+        self.assertEqual(images_loaded, len(sequence_data))
 
 
 class TestGroundTruthLoaderReadGroundTruth(BaseTestGroundTruthLoader):

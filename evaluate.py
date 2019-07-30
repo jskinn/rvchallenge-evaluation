@@ -33,11 +33,13 @@ def do_evaluation(submission_dir, ground_truth_dir, sequences=None, num_frames=-
     avg_spatial_quality = evaluator.get_avg_spatial_score()
     avg_label_quality = evaluator.get_avg_label_score()
     avg_overall_quality = evaluator.get_avg_overall_quality_score()
+    avg_fp_quality = evaluator.get_avg_fp_score()
     return {
         'score': score*100,
         'avg_spatial': avg_spatial_quality,
         'avg_label': avg_label_quality,
         'avg_pPDQ': avg_overall_quality,
+        'avg_fp_quality': avg_fp_quality,
         'TPs': TP,
         'FPs': FP,
         'FNs': FN

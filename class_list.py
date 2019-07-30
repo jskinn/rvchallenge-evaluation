@@ -55,6 +55,7 @@ SYNONYMS = {
     # 'kitchen table': 'table',
     # 'desk': 'table',
     'stool': 'chair',
+    'sofa': 'couch',
     'diningtable': 'dining table',
     'pottedplant': 'potted plant',
     'cellphone': 'cell phone',

@@ -99,12 +99,12 @@ def read_sequence(sequence_directory, start_index=0, end_index=-1):
     for image_id, image_name in sorted((int(l), l) for l in labels.keys() if start_index <= int(l) < end_index):
         if '_metadata' in labels[image_name]:
             im_mask_name = labels[image_name]['_metadata']['mask_name']
-            mask_im = cv2.imread(os.path.join(sequence_directory, im_mask_name))
+            mask_im = cv2.imread(os.path.join(sequence_directory, im_mask_name), cv2.IMREAD_ANYDEPTH)
 
             yield read_gt_for_image(
                 image_id=image_id,
                 image_data=labels[image_name],
-                masks=mask_im[:, :, 0]
+                masks=mask_im
             )
         else:
             yield []
