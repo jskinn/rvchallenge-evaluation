@@ -120,7 +120,7 @@ class PDQ(object):
         """
         if self._tot_FP > 0.0:
             return (self._tot_FP - self._tot_fp_cost) / self._tot_FP
-        return 0.0
+        return 1.0
 
     def get_avg_overall_quality_score(self):
         """
