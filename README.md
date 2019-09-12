@@ -8,6 +8,8 @@ This is the code that will be used to evaluate all submissions.
 For the starter kit, see:
 https://github.com/jskinn/rvchallenge-starter-kit
 
+For extra PDQ functionality including visualisation tools, extra evaluation measures, and COCO evaluation capability see: https://github.com/david2611/pdq_evaluation
+
 Dependencies
 ------------
 

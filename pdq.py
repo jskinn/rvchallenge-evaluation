@@ -18,6 +18,7 @@ class PDQ(object):
         self._tot_overall_quality = 0.0
         self._tot_spatial_quality = 0.0
         self._tot_label_quality = 0.0
+        self._tot_fp_cost = 0.0
         self._tot_TP = 0
         self._tot_FP = 0
         self._tot_FN = 0
@@ -33,6 +34,7 @@ class PDQ(object):
         self._tot_overall_quality += results['overall']
         self._tot_spatial_quality += results['spatial']
         self._tot_label_quality += results['label']
+        self._tot_fp_cost += results['fp_cost']
         self._tot_TP += results['TP']
         self._tot_FP += results['FP']
         self._tot_FN += results['FN']
@@ -42,8 +44,8 @@ class PDQ(object):
         Get the current PDQ score for all frames analysed at the current time.
         :return: The average PDQ across all images as a float.
         """
-        tot_pairs = self._tot_TP + self._tot_FP + self._tot_FN
-        return self._tot_overall_quality/tot_pairs
+        denominator = self._tot_TP + self._tot_fp_cost + self._tot_FN
+        return self._tot_overall_quality/denominator
 
     def reset(self):
         """
@@ -76,6 +78,7 @@ class PDQ(object):
             self._tot_overall_quality += img_results['overall']
             self._tot_spatial_quality += img_results['spatial']
             self._tot_label_quality += img_results['label']
+            self._tot_fp_cost += img_results['fp_cost']
             self._tot_TP += img_results['TP']
             self._tot_FP += img_results['FP']
             self._tot_FN += img_results['FN']
@@ -106,6 +109,18 @@ class PDQ(object):
         if self._tot_TP > 0.0:
             return self._tot_label_quality / float(self._tot_TP)
         return 0.0
+
+    def get_avg_fp_score(self):
+        """
+        Get the average quality (1 - cost) for all false positive detections across all frames analysed at the
+        current time.
+        Note that this is averaged only over the number of FPs and not the full set of TPs, FPs, and FNs.
+        Note that at present false positive cost/quality is based soley upon label scores.
+        :return: average false positive quality score
+        """
+        if self._tot_FP > 0.0:
+            return (self._tot_FP - self._tot_fp_cost) / self._tot_FP
+        return 1.0
 
     def get_avg_overall_quality_score(self):
         """
@@ -331,15 +346,21 @@ def _calc_qual_img(gt_instances, det_instances):
     # if there are no detections or gt instances respectively the quality is zero
     if len(gt_instances) == 0 or len(det_instances) == 0:
         FN = 0
+        # Handle false positives in the image (different levels of fp cost)
+        if len(det_instances) > 0:
+            tot_fp_cost = np.sum([np.max(det_instance.class_list) for det_instance in det_instances])
 
         # Filter out GT instances which are to be ignored because they are too small
-        if len(gt_instances) > 0:
+        elif len(gt_instances) > 0:
+            tot_fp_cost = 0
             for gt_idx, gt_instance in enumerate(gt_instances):
                 if _is_gt_included(gt_instance):
                     FN += 1
+        else:
+            tot_fp_cost = 0
 
         return {'overall': 0.0, 'spatial': 0.0, 'label': 0.0, 'TP': 0, 'FP': len(det_instances),
-                'FN': FN}
+                'FN': FN, 'fp_cost': tot_fp_cost}
 
     # For each possible pairing, calculate the quality of that pairing and convert it to a cost
     # to enable use of the Hungarian algorithm.
@@ -358,6 +379,8 @@ def _calc_qual_img(gt_instances, det_instances):
     true_positives = 0
     false_positives = 0
     false_negatives = 0
+    false_positive_idxs = []
+
     for match_idx, match in enumerate(zip(row_idxs, col_idxs)):
         row_id, col_id = match
         if overall_quality_table[row_id, col_id] > 0:
@@ -370,6 +393,7 @@ def _calc_qual_img(gt_instances, det_instances):
             if row_id < len(gt_instances) and _is_gt_included(gt_instances[row_id]):
                 false_negatives += 1
             if col_id < len(det_instances):
+                false_positive_idxs.append(col_id)
                 false_positives += 1
 
     # Calculate the sum of quality at the best matching pairs to calculate total qualities for the image
@@ -381,8 +405,11 @@ def _calc_qual_img(gt_instances, det_instances):
     tot_tp_spatial_quality = np.sum(spatial_quality_table[row_idxs, col_idxs])
     tot_tp_label_quality = np.sum(label_quality_table[row_idxs, col_idxs])
 
+    # Calculate the penalty for assigning a high label probability to false positives
+    tot_fp_cost = np.sum([np.max(det_instances[i].class_list) for i in false_positive_idxs])
+
     return {'overall': tot_overall_img_quality, 'spatial': tot_tp_spatial_quality, 'label': tot_tp_label_quality,
-            'TP': true_positives, 'FP': false_positives, 'FN': false_negatives}
+            'TP': true_positives, 'FP': false_positives, 'FN': false_negatives, 'fp_cost': tot_fp_cost}
 
 
 def _is_gt_included(gt_instance):
