@@ -323,7 +323,7 @@ def _gen_cost_tables(gt_instances, det_instances):
     return {'overall': overall_cost_table, 'spatial': spatial_cost_table, 'label': label_cost_table}
 
 
-def _calc_qual_img(gt_instances, det_instances):
+def _calc_qual_img(gt_instances, det_instances, background_idx=0):
     """
     Calculates the sum of qualities for the best matches between ground truth objects and detections for an image.
     Each ground truth object can only be matched to a single detection and vice versa as an object-detection pair.
@@ -337,6 +337,8 @@ def _calc_qual_img(gt_instances, det_instances):
     will not contribute to average_PDQ.
     :param gt_instances: list of GroundTruthInstance objects describing the ground truth objects in the current image.
     :param det_instances: list of DetectionInstance objects describing the detections for the current image.
+    :param background_idx: index of the background class (if present). Used for FP quality calculations which should
+    ignore background class predictions. If background class is not present, background_idx should be None.
     :return: results dictionary containing total overall spatial quality, total spatial quality on positively assigned
     detections, total label quality on positively assigned detections, number of true positives,
     number of false positives, and number false negatives for the given image.
@@ -348,7 +350,9 @@ def _calc_qual_img(gt_instances, det_instances):
         FN = 0
         # Handle false positives in the image (different levels of fp cost)
         if len(det_instances) > 0:
-            tot_fp_cost = np.sum([np.max(det_instance.class_list) for det_instance in det_instances])
+            tot_fp_cost = np.sum([np.max(list(det_instance.class_list[:background_idx]) +
+                                         list(det_instance.class_list[background_idx+1:]))
+                                  for det_instance in det_instances])
 
         # Filter out GT instances which are to be ignored because they are too small
         elif len(gt_instances) > 0:
@@ -406,7 +410,8 @@ def _calc_qual_img(gt_instances, det_instances):
     tot_tp_label_quality = np.sum(label_quality_table[row_idxs, col_idxs])
 
     # Calculate the penalty for assigning a high label probability to false positives
-    tot_fp_cost = np.sum([np.max(det_instances[i].class_list) for i in false_positive_idxs])
+    tot_fp_cost = np.sum([np.max(list(det_instances[i].class_list[:background_idx]) +
+                                 list(det_instances[i].class_list[background_idx+1:])) for i in false_positive_idxs])
 
     return {'overall': tot_overall_img_quality, 'spatial': tot_tp_spatial_quality, 'label': tot_tp_label_quality,
             'TP': true_positives, 'FP': false_positives, 'FN': false_negatives, 'fp_cost': tot_fp_cost}
